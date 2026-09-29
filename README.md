@@ -193,24 +193,81 @@ In the breaking example, the provider renames the payload field from `name` to `
 
 The `broken-provider` path demonstrates this mismatch locally and then the deployment gate will block the incompatible provider version in PactFlow.
 
-## Files to inspect
+## Optional: run the Drift demo
 
-- `consumer-java-kafka/src/test/java/io/pactflow/example/kafka/ProductsPactTestV4.java`
-- `provider-java-kafka/src/test/java/io/pactflow/example/kafka/ProductAsyncApiTest.java`
-- `provider-java-kafka/asyncapi.json`
-- `provider-java-kafka/src/main/java/io/pactflow/example/kafka/ProductEvent.java`
-- `bdct-demo.sh`
+The repository also supports a runtime drift check that is separate from the PactFlow BDCT flow.
 
-## Scripts vs manual demo flow
+This demo focuses on the provider implementation drifting away from the AsyncAPI contract while the running application is still producing Kafka events. The idea is simple: if the Java model changes a field name but the AsyncAPI schema still requires the old name, Drift should detect the mismatch.
 
-This repository includes both helper scripts and manual step-by-step demo files.
+### What this drift demo shows
 
-- `bdct-demo.sh` is a convenience wrapper for the local validation flow. It checks the consumer contract generation and the provider contract validation, and it includes an intentional broken-provider scenario to show how a contract mismatch fails locally.
-- `Demo-consumer-side.md` and `Demo-provider-side.md` describe the full manual flow, including PactFlow publishing, environment setup, `can-i-deploy`, deployment gating, and recovery after a breaking change.
+- the provider starts from a known-good contract state
+- the app emits events that match the AsyncAPI schema
+- the Java model is changed to rename a field such as `name` to `productName`
+- the AsyncAPI schema still requires `name`
+- Drift fails because the emitted event no longer matches the declared contract
+- the provider is restored, and the drift check passes again
 
-In practice, the scripts are useful for quick local validation and repeatable demos. The markdown files are the source of truth for understanding what is happening in the demo, because they show the exact values, versions, and publication steps.
+### How to run it
 
-This means you can use the scripts to speed up the workflow, but the manual process is still the best way to learn the underlying contract-testing story.
+From `provider-java-kafka`:
+
+```bash
+make drift-up
+SEND_TEST_EVENTS=false ./gradlew bootRun
+```
+
+Then, in another terminal, also in `provider-java-kafka`:
+
+```bash
+make drift-test
+```
+
+Expected result: the baseline passes with `1 passed, 0 failed`.
+
+### Intentionally introduce drift
+
+In `provider-java-kafka/src/main/java/io/pactflow/example/kafka/ProductEvent.java`, uncomment the annotation above `name`:
+
+```java
+@com.fasterxml.jackson.annotation.JsonProperty("productName")
+private String name;
+```
+
+Leave `provider-java-kafka/asyncapi.json` unchanged. Its schema still requires `name`.
+
+Restart the provider and run:
+
+```bash
+make drift-test
+```
+
+Expected result: Drift fails and reports the schema mismatch because the event now emits `productName` while the contract still expects `name`.
+
+### Restore and recover
+
+Comment the annotation out again:
+
+```java
+// @com.fasterxml.jackson.annotation.JsonProperty("productName")
+private String name;
+```
+
+Restart the provider and rerun:
+
+```bash
+make drift-test
+```
+
+Expected result: the drift check passes again.
+
+### Clean up
+
+```bash
+make drift-down
+```
+
+This is optional and complementary to the PactFlow BDCT flow. You do not need it to run the main consumer/provider compatibility demo, but it is a strong runtime example of what happens when the provider implementation drifts away from its declared contract.
 
 ---
 

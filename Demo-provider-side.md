@@ -180,6 +180,93 @@ deploy_demo
 
 Expected result: provider tests pass, compatibility passes, and the deployment gate allows the restored version.
 
+## Optional: run the Drift demo
+
+This is a complementary runtime drift check. It is not required for the main PactFlow BDCT flow, but it is useful when you want to show how a provider implementation can silently drift away from the AsyncAPI contract while the contract tests still look healthy.
+
+### 1. Start Kafka and the provider
+
+From `provider-java-kafka`:
+
+```bash
+make drift-up
+SEND_TEST_EVENTS=false ./gradlew bootRun
+```
+
+Wait for the application to start.
+
+### 2. Show the passing baseline
+
+In another terminal, also in `provider-java-kafka`:
+
+```bash
+make drift-test
+```
+
+Expected result: `1 passed, 0 failed`.
+
+This confirms the running provider emits an event that matches the AsyncAPI contract.
+
+### 3. Introduce implementation drift
+
+In `provider-java-kafka/src/main/java/io/pactflow/example/kafka/ProductEvent.java`, uncomment the annotation above `name`:
+
+```java
+@com.fasterxml.jackson.annotation.JsonProperty("productName")
+private String name;
+```
+
+Leave `provider-java-kafka/asyncapi.json` unchanged. Its schema still requires `name`.
+
+### 4. Restart the provider
+
+In the terminal running the provider, stop it with `Ctrl+C`, then run:
+
+```bash
+SEND_TEST_EVENTS=false ./gradlew bootRun
+```
+
+### 5. Show Drift catching the mismatch
+
+In the second terminal:
+
+```bash
+make drift-test
+```
+
+Expected result: failure, including a schema violation because the required `name` property is missing.
+
+This demonstrates the runtime problem: the provider emits `productName`, but the contract still promises `name`.
+
+### 6. Restore the provider and recover
+
+Comment the annotation out again:
+
+```java
+// @com.fasterxml.jackson.annotation.JsonProperty("productName")
+private String name;
+```
+
+Restart the provider and rerun:
+
+```bash
+make drift-test
+```
+
+Expected result: the check passes again.
+
+### 7. Clean up
+
+Stop the provider with `Ctrl+C`, then:
+
+```bash
+make drift-down
+```
+
+This optional Drift path complements the main BDCT flow. It shows that a provider can look healthy in isolation, but still fail when real runtime output drifts away from the declared contract.
+
+---
+
 ## Summary
 
 This demo shows the full provider-side story:
