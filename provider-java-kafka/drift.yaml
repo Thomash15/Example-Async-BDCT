@@ -1,0 +1,34 @@
+# Run with bash drift/run.sh; it substitutes a fresh correlation ID per run.
+drift-testcase-file: v1
+title: Java Kafka product provider
+sources:
+  - name: products
+    path: ./asyncapi.json
+plugins:
+  - name: asyncapi
+  - name: kafka
+  - name: json
+operations:
+  ProductCreated:
+    target: products:sendProductEvent:productEvent
+    parameters:
+      timeout-ms: 15000
+      correlation-id: drift-product-created
+    trigger:
+      executable-type: command
+      value: python3
+      parameters:
+        args:
+          - ./trigger.py
+          - ${parameters.correlation-id}
+      timeout-ms: 10000
+    expected:
+      headers:
+        correlation-id: ${parameters.correlation-id}
+      payload:
+        id: ${parameters.correlation-id}
+        name: Test product
+        type: BOOK
+        version: v1
+        event: CREATED
+        price: 27.0

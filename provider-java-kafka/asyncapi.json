@@ -1,0 +1,82 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "Product Events Provider",
+    "version": "1.0.0",
+    "description": "Kafka product events produced by ProductMessageBuilder. This workshop contract describes valid product events; the Java model itself does not enforce these constraints."
+  },
+  "defaultContentType": "application/json",
+  "servers": {
+    "local": {
+      "host": "localhost:9092",
+      "protocol": "kafka"
+    }
+  },
+  "channels": {
+    "products": {
+      "address": "products",
+      "description": "Product lifecycle events published by the Java provider.",
+      "messages": {
+        "productEvent": { "$ref": "#/components/messages/ProductEvent" }
+      }
+    }
+  },
+  "operations": {
+    "sendProductEvent": {
+      "action": "send",
+      "summary": "Publish a product creation, update, or deletion event",
+      "channel": { "$ref": "#/channels/products" },
+      "messages": [ { "$ref": "#/channels/products/messages/productEvent" } ]
+    }
+  },
+  "components": {
+    "messages": {
+      "ProductEvent": {
+        "name": "ProductEvent",
+        "title": "Product lifecycle event",
+        "contentType": "application/json",
+        "correlationId": { "location": "$message.header#/correlation-id" },
+        "payload": {
+          "$ref": "#/components/schemas/ProductEvent",
+          "description": "Product lifecycle event payload."
+        },
+        "examples": [
+          {
+            "name": "productCreated",
+            "payload": {
+              "id": "id1",
+              "name": "product name",
+              "type": "product type",
+              "version": "v1",
+              "event": "CREATED",
+              "price": 27.0
+            }
+          }
+        ]
+      }
+    },
+    "schemas": {
+      "ProductEvent": {
+        "type": "object",
+        "required": ["id", "name", "type", "version", "event"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product identifier. Not restricted to UUIDs: the provider test uses id1."
+          },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "version": { "type": "string" },
+          "event": {
+            "type": "string",
+            "enum": ["CREATED", "UPDATED", "DELETED"]
+          },
+          "price": {
+            "type": ["number", "null"],
+            "description": "Optional price; Java models this as a nullable Double."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+plugins {
+	id 'org.springframework.boot' version '4.1.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'java'
+  	id "au.com.dius.pact" version "4.7.5"
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+java {
+	sourceCompatibility = '17'
+}
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+  compileOnly {
+    extendsFrom annotationProcessor
+  }
+}
+
+dependencies {
+	testImplementation 'com.networknt:json-schema-validator:1.5.9'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-kafka'
+	implementation 'org.springframework.boot:spring-boot-jackson'
+	testImplementation 'au.com.dius.pact.provider:junit5:4.7.5'
+	testImplementation 'au.com.dius.pact.provider:spring:4.7.3'
+	testImplementation 'au.com.dius.pact.provider:gradle:4.7.5'
+	runtimeOnly 'com.h2database:h2'
+  compileOnly 'org.projectlombok:lombok'
+  annotationProcessor 'org.projectlombok:lombok'
+	testImplementation('org.springframework.boot:spring-boot-starter-test') {
+		exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+	}
+    implementation 'net.datafaker:datafaker:2.7.0'
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events 'passed', 'failed', 'skipped'
+		exceptionFormat 'full'
+	}
+
+	environment("PACT_FOLDER", System.getenv("PACT_FOLDER") == null ? "../consumer-java-kafka/build/pacts" : System.getenv("PACT_FOLDER"))
+}

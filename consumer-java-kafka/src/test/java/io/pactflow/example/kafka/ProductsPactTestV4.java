@@ -1,0 +1,69 @@
+package io.pactflow.example.kafka;
+
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import au.com.dius.pact.core.model.annotations.Pact;
+import au.com.dius.pact.consumer.junit5.PactConsumerTestExt;
+import au.com.dius.pact.consumer.junit5.PactTestFor;
+import au.com.dius.pact.consumer.junit5.ProviderType;
+import au.com.dius.pact.consumer.MessagePactBuilder;
+import au.com.dius.pact.consumer.dsl.PactDslJsonBody;
+import au.com.dius.pact.core.model.PactSpecVersion;
+import au.com.dius.pact.core.model.V4Interaction;
+import au.com.dius.pact.core.model.V4Pact;
+import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import tools.jackson.databind.ObjectMapper;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.verify;
+
+@ExtendWith({PactConsumerTestExt.class, MockitoExtension.class})
+@PactTestFor(providerName = "pactflow-example-provider-java-kafka", providerType = ProviderType.ASYNCH, pactVersion = PactSpecVersion.V4)
+public class ProductsPactTestV4 {
+  @InjectMocks
+  ProductEventListener listener;
+
+  @Mock
+  ProductRepository repository;
+
+  @Pact(consumer = "pactflow-example-consumer-java-kafka-V4")
+  V4Pact createPact(MessagePactBuilder builder) {
+    PactDslJsonBody body = new PactDslJsonBody();
+    body.stringType("name", "product name");
+    body.stringType("type", "product series");
+    body.stringType("id", "5cc989d0-d800-434c-b4bb-b1268499e850");
+    body.stringMatcher("version", "v[a-zA-z0-9]+", "v1");
+    body.stringMatcher("event", "^(CREATED|UPDATED|DELETED)$", "CREATED");
+
+    Map<String, Object> metadata = new HashMap<>();
+    metadata.put("Content-Type", "application/json");
+    metadata.put("kafka_topic", "products");
+
+    V4Pact pact = builder.expectsToReceive("a product created event")
+        .withMetadata(metadata).withContent(body).toPact();
+    pact.getInteractions().forEach(interaction ->
+        ((V4Interaction) interaction).addReference(
+            "AsyncAPI", "operationId", "sendProductEvent"));
+    return pact;
+  }
+
+  @Test
+  @PactTestFor(pactMethod = "createPact")
+  void test(List<V4Interaction.AsynchronousMessage> messages) throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    System.out.println("Message received -> " + messages.get(0).contentsAsString());
+    Product product = mapper.readValue(messages.get(0).contentsAsString(), Product.class);
+
+    assertDoesNotThrow(() -> {
+      listener.listen(product);
+    });
+    verify(repository).save(product);
+  }
+}
