@@ -1,18 +1,30 @@
+# OS
 *.DS_Store
+Thumbs.db
+
+# Editor temp files
 *.sw?
 .#*
 *#
 *~
+*.sublime-*
+
+# IDE
 .classpath
 .project
 .settings
-bin
-build
-target
-dependency-reduced-pom.xml
-*.sublime-*
-/scratch
-.gradle
-README.html
-.idea
+.idea/
 *.iml
+
+# Build and compilation
+build/
+bin/
+target/
+.gradle/
+dependency-reduced-pom.xml
+*.jar
+*.class
+README.html
+
+# Misc
+/scratch
